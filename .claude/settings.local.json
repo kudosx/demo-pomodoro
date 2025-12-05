@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(product)",
+      "Bash(mkdir:*)",
+      "Skill(qc-web)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

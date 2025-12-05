@@ -21,3 +21,6 @@ dist/
 build/
 .cache/
 
+
+!.claude/
+!CLAUDE.md
