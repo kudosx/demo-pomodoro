@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Timer</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="music-controls">
+        <button class="music-btn" id="musicBtn" onclick="toggleMusic()">&#9654;</button>
+        <div class="music-divider"></div>
+        <div class="music-info off" id="musicInfo">Music off</div>
+        <div class="music-divider"></div>
+        <button class="mood-btn" id="calmBtn" onclick="setMood('peaceful')">Calm</button>
+        <button class="mood-btn" id="energyBtn" onclick="setMood('energetic')">Energy</button>
+        <div class="music-divider"></div>
+        <button class="music-btn" id="likeBtn" onclick="likeTrack()" title="Like">&#128077;</button>
+        <span class="like-count" id="likeCount">0</span>
+        <button class="music-btn" id="dislikeBtn" onclick="dislikeTrack()" title="Dislike">&#128078;</button>
+        <span class="like-count" id="dislikeCount">0</span>
+        <div class="music-divider"></div>
+        <button class="music-btn" id="skipBtn" onclick="skipTrack()">&#9197;</button>
+    </div>
+
+    <button class="settings-btn" onclick="openSettings()" title="Settings">&#9881;</button>
+
+    <div class="settings-overlay" id="settingsOverlay" onclick="closeSettingsOverlay(event)">
+        <div class="settings-modal">
+            <div class="settings-header">
+                <span class="settings-title">Preferences</span>
+                <button class="settings-close" onclick="closeSettings()">&times;</button>
+            </div>
+            <div class="settings-body">
+                <div class="settings-tabs">
+                    <button class="settings-tab active" data-tab="mood" onclick="switchTab('mood')">🎵 Mood</button>
+                    <button class="settings-tab" data-tab="sound" onclick="switchTab('sound')">🔊 Sound</button>
+                    <button class="settings-tab" data-tab="library" onclick="switchTab('library')">📚 Library</button>
+                </div>
+                <div class="settings-content">
+                <div class="settings-panel active" id="panel-mood">
+                    <div class="settings-group">
+                        <label class="settings-label">Select music mood</label>
+                        <div class="settings-mood-btns">
+                            <button class="settings-mood-btn" id="settingsCalmBtn" onclick="setMoodFromSettings('peaceful')">🌙 Calm</button>
+                            <button class="settings-mood-btn" id="settingsEnergyBtn" onclick="setMoodFromSettings('energetic')">⚡ Energy</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-panel" id="panel-sound">
+                    <div class="settings-group">
+                        <label class="settings-label">Volume</label>
+                        <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="70" oninput="updateVolume(this.value)">
+                        <div class="volume-value" id="volumeValue">70%</div>
+                    </div>
+                </div>
+                <div class="settings-panel" id="panel-library">
+                    <div class="library-search">
+                        <input type="text" class="library-search-input" id="librarySearch" placeholder="Search songs..." oninput="filterMusicList()">
+                    </div>
+                    <div class="music-list" id="musicList"></div>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="audioPlayer"></audio>
+    <audio id="endSoundPlayer" src="sound/end/end-sound-effect-3911.mp3"></audio>
+
+    <!-- Session Complete Notification -->
+    <div class="notification-overlay" id="notificationOverlay">
+        <div class="notification-panel">
+            <div class="notification-icon" id="notificationIcon">🎉</div>
+            <h2 class="notification-title" id="notificationTitle">Session Complete!</h2>
+            <p class="notification-message" id="notificationMessage">Great work! Time to take a break.</p>
+            <button class="notification-btn" onclick="closeNotification()">Got it</button>
+        </div>
+    </div>
+
+    <script src="preferences.js"></script>
+
+    <div class="container">
+        <h1>Pomodoro Timer</h1>
+        <p class="mode-display" id="modeDisplay">Work Time</p>
+
+        <div class="session-title-wrapper">
+            <span class="session-title-toggle" id="sessionTitleToggle" onclick="showTitleInput()">+ Add session title</span>
+            <input type="text" class="session-title-input" id="sessionTitle" placeholder="What are you working on?" maxlength="50" onkeydown="handleTitleKeydown(event)">
+            <span class="session-title-display" id="sessionTitleDisplay" style="display: none;" onclick="editTitle()"></span>
+        </div>
+
+        <div class="mode-buttons">
+            <button class="mode-btn active" onclick="setMode('work')">Work</button>
+            <button class="mode-btn" onclick="setMode('shortBreak')">Short Break</button>
+            <button class="mode-btn" onclick="setMode('longBreak')">Long Break</button>
+        </div>
+
+        <div class="timer-wrapper">
+            <div class="timer" id="timer" onclick="startTimerEdit()">25:00</div>
+            <input type="number" class="timer-input" id="timerInput" min="1" max="60" onkeydown="handleTimerKeydown(event)" onblur="applyTimerEdit()">
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" id="startBtn" onclick="toggleTimer()">Start</button>
+            <button class="btn btn-secondary" onclick="resetTimer()">Reset</button>
+        </div>
+
+        <p class="sessions">Completed sessions: <span id="sessionCount">0</span></p>
+
+        <div class="timeline-section">
+            <div class="timeline-header">
+                <span class="timeline-title">Today's Timeline</span>
+                <span class="timeline-date" id="todayDate"></span>
+            </div>
+            <div class="timeline" id="timeline">
+                <p class="timeline-empty">No sessions yet. Start your first Pomodoro!</p>
+            </div>
+            <div class="timeline-legend">
+                <div class="legend-item"><div class="legend-dot work"></div> Work</div>
+                <div class="legend-item"><div class="legend-dot short-break"></div> Short Break</div>
+                <div class="legend-item"><div class="legend-dot long-break"></div> Long Break</div>
+            </div>
+            <button class="clear-btn" onclick="clearTimeline()" style="margin-top: 10px;">Clear Timeline</button>
+        </div>
+    </div>
+
+    <script>
+        const MODES = {
+            work: { time: 25 * 60, label: 'Work Time' },
+            shortBreak: { time: 5 * 60, label: 'Short Break' },
+            longBreak: { time: 15 * 60, label: 'Long Break' }
+        };
+
+        let currentMode = 'work';
+        let timeLeft = MODES.work.time;
+        let isRunning = false;
+        let interval = null;
+        let sessions = 0;
+        let todayKey = new Date().toDateString();
+
+        const timerDisplay = document.getElementById('timer');
+        const modeDisplay = document.getElementById('modeDisplay');
+        const startBtn = document.getElementById('startBtn');
+        const sessionCount = document.getElementById('sessionCount');
+        const timelineEl = document.getElementById('timeline');
+        const todayDateEl = document.getElementById('todayDate');
+        const sessionTitleInput = document.getElementById('sessionTitle');
+        const sessionTitleToggle = document.getElementById('sessionTitleToggle');
+        const sessionTitleDisplay = document.getElementById('sessionTitleDisplay');
+
+        function showTitleInput() {
+            sessionTitleToggle.style.display = 'none';
+            sessionTitleDisplay.style.display = 'none';
+            sessionTitleInput.classList.add('visible');
+            sessionTitleInput.focus();
+        }
+
+        function handleTitleKeydown(event) {
+            if (event.key === 'Enter') {
+                const title = sessionTitleInput.value.trim();
+                if (title) {
+                    sessionTitleInput.classList.remove('visible');
+                    sessionTitleDisplay.textContent = title;
+                    sessionTitleDisplay.style.display = 'inline';
+                } else {
+                    sessionTitleInput.classList.remove('visible');
+                    sessionTitleToggle.style.display = 'inline';
+                }
+                if (!isRunning) {
+                    toggleTimer();
+                }
+            }
+        }
+
+        function editTitle() {
+            sessionTitleDisplay.style.display = 'none';
+            sessionTitleInput.classList.add('visible');
+            sessionTitleInput.focus();
+        }
+
+        function getTimeline() {
+            const stored = localStorage.getItem('pomodoroTimeline');
+            if (!stored) return [];
+            const data = JSON.parse(stored);
+            if (data.date !== todayKey) {
+                return [];
+            }
+            return data.sessions || [];
+        }
+
+        function saveTimeline(timeline) {
+            localStorage.setItem('pomodoroTimeline', JSON.stringify({
+                date: todayKey,
+                sessions: timeline
+            }));
+        }
+
+        function addToTimeline(mode) {
+            const timeline = getTimeline();
+            const now = new Date();
+            const title = sessionTitleInput.value.trim() || MODES[mode].label;
+            timeline.push({
+                mode: mode,
+                time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                title: title
+            });
+            saveTimeline(timeline);
+            renderTimeline();
+        }
+
+        function renderTimeline() {
+            const timeline = getTimeline();
+            if (timeline.length === 0) {
+                timelineEl.innerHTML = '<p class="timeline-empty">No sessions yet. Start your first Pomodoro!</p>';
+                return;
+            }
+
+            timelineEl.innerHTML = timeline.map(session => {
+                const modeClass = session.mode === 'work' ? 'work' :
+                                  session.mode === 'shortBreak' ? 'short-break' : 'long-break';
+                const modeLabel = session.mode === 'work' ? 'W' :
+                                  session.mode === 'shortBreak' ? 'SB' : 'LB';
+                const title = session.title || MODES[session.mode].label;
+                return `
+                    <div class="timeline-item ${modeClass}" title="${title} - ${session.time}">
+                        <span class="time">${session.time}</span>
+                        <span>${modeLabel}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function clearTimeline() {
+            if (confirm('Clear today\'s timeline?')) {
+                localStorage.removeItem('pomodoroTimeline');
+                sessions = 0;
+                sessionCount.textContent = sessions;
+                renderTimeline();
+            }
+        }
+
+        function updateDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            timeLeft = MODES[mode].time;
+            modeDisplay.textContent = MODES[mode].label;
+            updateDisplay();
+
+            if (isRunning) {
+                toggleTimer();
+            }
+
+            document.querySelectorAll('.mode-btn').forEach((btn, index) => {
+                const modes = ['work', 'shortBreak', 'longBreak'];
+                btn.classList.toggle('active', modes[index] === mode);
+            });
+        }
+
+        function toggleTimer() {
+            if (isRunning) {
+                clearInterval(interval);
+                startBtn.textContent = 'Start';
+            } else {
+                interval = setInterval(() => {
+                    timeLeft--;
+                    updateDisplay();
+
+                    if (timeLeft === 0) {
+                        clearInterval(interval);
+                        isRunning = false;
+                        startBtn.textContent = 'Start';
+
+                        addToTimeline(currentMode);
+                        playEndSound();
+
+                        if (currentMode === 'work') {
+                            sessions++;
+                            sessionCount.textContent = sessions;
+                            showNotification('work');
+                        } else {
+                            showNotification('break');
+                        }
+                    }
+                }, 1000);
+                startBtn.textContent = 'Pause';
+            }
+            isRunning = !isRunning;
+        }
+
+        function resetTimer() {
+            clearInterval(interval);
+            isRunning = false;
+            timeLeft = MODES[currentMode].time;
+            startBtn.textContent = 'Start';
+            updateDisplay();
+        }
+
+        // Timer Edit
+        const timerInput = document.getElementById('timerInput');
+        let isEditingTimer = false;
+
+        function startTimerEdit() {
+            if (isRunning) return;
+            isEditingTimer = true;
+            const currentMinutes = Math.ceil(timeLeft / 60);
+            timerInput.value = currentMinutes;
+            timerDisplay.style.display = 'none';
+            timerInput.style.display = 'block';
+            timerInput.focus();
+            timerInput.select();
+        }
+
+        function cancelTimerEdit() {
+            isEditingTimer = false;
+            timerInput.style.display = 'none';
+            timerDisplay.style.display = 'block';
+        }
+
+        function applyTimerEdit() {
+            if (!isEditingTimer) return;
+            let minutes = parseInt(timerInput.value, 10);
+            if (isNaN(minutes) || minutes < 1) minutes = 1;
+            if (minutes > 60) minutes = 60;
+            timeLeft = minutes * 60;
+            updateDisplay();
+            cancelTimerEdit();
+        }
+
+        function handleTimerKeydown(event) {
+            if (event.key === 'Enter') {
+                applyTimerEdit();
+            } else if (event.key === 'Escape') {
+                cancelTimerEdit();
+            }
+        }
+
+        // Initialize
+        todayDateEl.textContent = new Date().toLocaleDateString('en-US', {
+            weekday: 'short', month: 'short', day: 'numeric'
+        });
+        sessions = getTimeline().filter(s => s.mode === 'work').length;
+        sessionCount.textContent = sessions;
+        renderTimeline();
+        updateDisplay();
+
+        // Music Player
+        const MUSIC = {
+            peaceful: [
+                'music/peaceful/freepik-a-special-morning.mp3',
+                'music/peaceful/freepik-seamlessly-loved.mp3',
+                'music/peaceful/freepik-hierbabuena.mp3',
+                'music/peaceful/freepik-solar-eclipse.mp3',
+                'music/peaceful/freepik-evening-draws-near.mp3',
+                'music/peaceful/freepik-flycatcher.mp3',
+                'music/peaceful/freepik-stonecutters.mp3',
+                'music/peaceful/freepik-vostoc.mp3',
+                'music/peaceful/freepik-calming-state.mp3',
+                'music/peaceful/freepik-my-cozy-christmas-mood.mp3',
+                'music/peaceful/freepik-prince-kali.mp3',
+                'music/peaceful/freepik-casita.mp3',
+                'music/peaceful/freepik-if-i-lose-myself-dancing.mp3',
+                'music/peaceful/freepik-mirage-lounge.mp3',
+                'music/peaceful/freepik-litang.mp3',
+                'music/peaceful/freepik-la-lune-et-la-mouette.mp3'
+            ],
+            energetic: [
+                'music/energetic/freepik-cosmic-funk.mp3',
+                'music/energetic/freepik-ckt-rip.mp3',
+                'music/energetic/freepik-feel-the-beat.mp3',
+                'music/energetic/freepik-24k.mp3',
+                'music/energetic/freepik-dominion.mp3',
+                'music/energetic/freepik-neon-favelas.mp3',
+                'music/energetic/freepik-a-different-life.mp3',
+                'music/energetic/freepik-visionary-connection.mp3',
+                'music/energetic/freepik-fighters-game.mp3',
+                'music/energetic/freepik-skyline-hustle.mp3',
+                'music/energetic/freepik-freaky-trumpets.mp3',
+                'music/energetic/freepik-nothing-can-stop-us.mp3',
+                'music/energetic/freepik-you-were-right.mp3'
+            ]
+        };
+
+        let musicOn = false;
+        let currentCategory = 'peaceful';
+        let shuffledPlaylist = [];
+        let currentTrackIndex = 0;
+        let musicVolume = 0.7;
+
+        const audioPlayer = document.getElementById('audioPlayer');
+        const musicBtn = document.getElementById('musicBtn');
+        const musicInfo = document.getElementById('musicInfo');
+
+        // Load preferences from preferences.js
+        function loadPreferences() {
+            currentCategory = PREFERENCES.music?.mood || 'peaceful';
+            musicVolume = PREFERENCES.music?.volume || 0.7;
+            // Apply loaded preferences
+            audioPlayer.volume = musicVolume;
+            document.getElementById('calmBtn').classList.toggle('active', currentCategory === 'peaceful');
+            document.getElementById('energyBtn').classList.toggle('active', currentCategory === 'energetic');
+            document.getElementById('volumeSlider').value = musicVolume * 100;
+            document.getElementById('volumeValue').textContent = Math.round(musicVolume * 100) + '%';
+            shuffledPlaylist = shuffleArray(MUSIC[currentCategory]);
+        }
+
+        // Settings modal
+        function openSettings() {
+            document.getElementById('settingsOverlay').classList.add('active');
+            switchTab('mood');
+            updateSettingsMoodButtons();
+        }
+
+        function renderMusicList(filter = '') {
+            const musicList = document.getElementById('musicList');
+            let html = '';
+            const filterLower = filter.toLowerCase();
+
+            function renderTrack(track) {
+                const name = getTrackName(track);
+                // Filter by keyword
+                if (filterLower && !name.toLowerCase().includes(filterLower)) {
+                    return;
+                }
+                const stats = getTrackStats(track);
+                const rating = getTrackRating(track);
+                const trackData = encodeURIComponent(track);
+                html += `
+                    <div class="music-item" data-track="${trackData}">
+                        <span class="music-item-name">${name}</span>
+                        <div class="music-item-stats">
+                            <span class="music-item-stat plays">▶ ${stats.plays}</span>
+                            <span class="music-item-stat skips">⏭ ${stats.skips}</span>
+                            <span class="music-item-stat likes">👍 ${rating.likes}</span>
+                            <span class="music-item-stat dislikes">👎 ${rating.dislikes}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Calm category
+            const calmTracks = MUSIC.peaceful.filter(track =>
+                !filterLower || getTrackName(track).toLowerCase().includes(filterLower)
+            );
+            if (calmTracks.length > 0) {
+                html += '<div class="music-category-header">Calm</div>';
+                calmTracks.forEach(track => renderTrack(track));
+            }
+
+            // Energy category
+            const energyTracks = MUSIC.energetic.filter(track =>
+                !filterLower || getTrackName(track).toLowerCase().includes(filterLower)
+            );
+            if (energyTracks.length > 0) {
+                html += '<div class="music-category-header">Energy</div>';
+                energyTracks.forEach(track => renderTrack(track));
+            }
+
+            if (!html) {
+                html = '<div class="music-list-empty">No songs found</div>';
+            }
+
+            musicList.innerHTML = html;
+        }
+
+        function filterMusicList() {
+            const searchInput = document.getElementById('librarySearch');
+            renderMusicList(searchInput.value);
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsOverlay').classList.remove('active');
+        }
+
+        function closeSettingsOverlay(event) {
+            if (event.target.id === 'settingsOverlay') {
+                closeSettings();
+            }
+        }
+
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.settings-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.tab === tabName);
+            });
+            // Update panels
+            document.querySelectorAll('.settings-panel').forEach(panel => {
+                panel.classList.toggle('active', panel.id === 'panel-' + tabName);
+            });
+            // Render music list when switching to library tab
+            if (tabName === 'library') {
+                renderMusicList();
+            }
+        }
+
+        function updateVolume(value) {
+            musicVolume = value / 100;
+            audioPlayer.volume = musicVolume;
+            document.getElementById('volumeValue').textContent = value + '%';
+        }
+
+        function updateSettingsMoodButtons() {
+            document.getElementById('settingsCalmBtn').classList.toggle('active', currentCategory === 'peaceful');
+            document.getElementById('settingsEnergyBtn').classList.toggle('active', currentCategory === 'energetic');
+        }
+
+        function setMoodFromSettings(mood) {
+            setMood(mood);
+            updateSettingsMoodButtons();
+        }
+
+        function setMood(mood) {
+            currentCategory = mood;
+            shuffledPlaylist = shuffleArray(MUSIC[mood]);
+            currentTrackIndex = 0;
+
+            document.getElementById('calmBtn').classList.toggle('active', mood === 'peaceful');
+            document.getElementById('energyBtn').classList.toggle('active', mood === 'energetic');
+
+            if (musicOn) {
+                playTrack();
+            }
+        }
+
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        function getTrackName(path) {
+            return path.split('/').pop().replace('freepik-', '').replace('.mp3', '').replace(/-/g, ' ');
+        }
+
+        function playTrack() {
+            if (shuffledPlaylist.length === 0) {
+                shuffledPlaylist = shuffleArray(MUSIC[currentCategory]);
+                currentTrackIndex = 0;
+            }
+            const track = shuffledPlaylist[currentTrackIndex];
+            audioPlayer.src = track;
+            audioPlayer.play();
+            musicInfo.textContent = getTrackName(track);
+            updateRatingDisplay();
+            // Increment play count
+            getTrackStats(track).plays++;
+        }
+
+        function toggleMusic() {
+            musicOn = !musicOn;
+            if (musicOn) {
+                musicBtn.classList.add('active');
+                musicBtn.innerHTML = '&#10074;&#10074;';
+                musicInfo.classList.remove('off');
+                playTrack();
+            } else {
+                musicBtn.classList.remove('active');
+                musicBtn.innerHTML = '&#9654;';
+                musicInfo.classList.add('off');
+                audioPlayer.pause();
+                musicInfo.textContent = 'Music off';
+            }
+        }
+
+        function skipTrack() {
+            if (!musicOn) return;
+            // Increment skip count for current track before skipping
+            const currentTrack = getCurrentTrack();
+            if (currentTrack) {
+                getTrackStats(currentTrack).skips++;
+            }
+            currentTrackIndex = (currentTrackIndex + 1) % shuffledPlaylist.length;
+            if (currentTrackIndex === 0) {
+                shuffledPlaylist = shuffleArray(MUSIC[currentCategory]);
+            }
+            document.getElementById('likeBtn').classList.remove('liked');
+            playTrack();
+        }
+
+        // Track likes/dislikes per song
+        const trackRatings = {};
+
+        // Track play count and skip count per song
+        const trackStats = {};
+
+        function getCurrentTrack() {
+            return shuffledPlaylist[currentTrackIndex];
+        }
+
+        function getTrackRating(track) {
+            if (!trackRatings[track]) {
+                trackRatings[track] = { likes: 0, dislikes: 0 };
+            }
+            return trackRatings[track];
+        }
+
+        function getTrackStats(track) {
+            if (!trackStats[track]) {
+                trackStats[track] = { plays: 0, skips: 0 };
+            }
+            return trackStats[track];
+        }
+
+        function updateRatingDisplay() {
+            const track = getCurrentTrack();
+            if (track) {
+                const rating = getTrackRating(track);
+                document.getElementById('likeCount').textContent = rating.likes;
+                document.getElementById('dislikeCount').textContent = rating.dislikes;
+            } else {
+                document.getElementById('likeCount').textContent = 0;
+                document.getElementById('dislikeCount').textContent = 0;
+            }
+        }
+
+        function likeTrack() {
+            if (!musicOn) return;
+            const track = getCurrentTrack();
+            const rating = getTrackRating(track);
+            rating.likes++;
+            updateRatingDisplay();
+            // Animation only, keep playing
+            const likeBtn = document.getElementById('likeBtn');
+            likeBtn.classList.remove('liked');
+            void likeBtn.offsetWidth;
+            likeBtn.classList.add('liked');
+        }
+
+        function dislikeTrack() {
+            if (!musicOn) return;
+            const track = getCurrentTrack();
+            const rating = getTrackRating(track);
+            rating.dislikes++;
+            updateRatingDisplay();
+            // Animation
+            const dislikeBtn = document.getElementById('dislikeBtn');
+            dislikeBtn.classList.remove('disliked');
+            void dislikeBtn.offsetWidth;
+            dislikeBtn.classList.add('disliked');
+            // Skip to next
+            setTimeout(() => {
+                dislikeBtn.classList.remove('disliked');
+                skipTrack();
+            }, 300);
+        }
+
+        audioPlayer.addEventListener('ended', () => {
+            skipTrack();
+        });
+
+        // End sound player
+        const endSoundPlayer = document.getElementById('endSoundPlayer');
+
+        function playEndSound() {
+            // Pause current music if playing
+            if (musicOn) {
+                audioPlayer.pause();
+            }
+            // Play end sound effect
+            endSoundPlayer.currentTime = 0;
+            endSoundPlayer.volume = musicVolume;
+            endSoundPlayer.play();
+        }
+
+        // Notification Panel
+        const notificationOverlay = document.getElementById('notificationOverlay');
+        const notificationPanel = document.querySelector('.notification-panel');
+        const notificationIcon = document.getElementById('notificationIcon');
+        const notificationTitle = document.getElementById('notificationTitle');
+        const notificationMessage = document.getElementById('notificationMessage');
+
+        function showNotification(type) {
+            if (type === 'work') {
+                notificationIcon.textContent = '🎉';
+                notificationTitle.textContent = 'Session Complete!';
+                notificationMessage.textContent = 'Great work! Time to take a break.';
+                notificationPanel.classList.remove('break');
+            } else {
+                notificationIcon.textContent = '💪';
+                notificationTitle.textContent = 'Break is Over!';
+                notificationMessage.textContent = 'Ready to focus? Let\'s get back to work!';
+                notificationPanel.classList.add('break');
+            }
+            notificationOverlay.classList.add('active');
+        }
+
+        function closeNotification() {
+            notificationOverlay.classList.remove('active');
+        }
+
+        // Load music preferences on startup
+        loadPreferences();
+    </script>
+</body>
+</html>
